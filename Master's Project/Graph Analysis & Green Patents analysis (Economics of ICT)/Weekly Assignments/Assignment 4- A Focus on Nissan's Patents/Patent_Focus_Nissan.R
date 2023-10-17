@@ -1,0 +1,156 @@
+rm(list = ls())
+#################################
+### Patent Data Analysis (EPO) ###
+#################################
+
+# FOCUS: FIRM "NISSAN MOTOR" #
+
+# Preliminary step: download data from ESPACENET (Excel files)
+# https://worldwide.espacenet.com/
+
+# Download and activate the required packages
+library(readxl)   # to install the command: install.packages("readxl")
+library(dplyr)    # to install the command: install.packages("dplyr")
+library(ggplot2)  # to install the command: install.packages("tidyverse")
+
+#########################
+# Firm Level analysis
+##########################
+
+# 1. Evolution over time in  the number of patents
+
+# Import data
+data_priority <- read_excel("C:/Users/Marco/Downloads/R-ICT/Esercitazione_patent/Nissan_motor_v2.xlsx", sheet="Earliest priority date")
+View(data_priority)
+
+# Graphs
+plot(data_priority$Earliest_priority_date, data_priority$Number_of_documents, xlab="Year", ylab="Number of patents", main="Number of patents - Nissan motor")
+
+with(data_priority[(data_priority$Earliest_priority_date>=1990) & (data_priority$Earliest_priority_date<=2016),], plot(Earliest_priority_date, Number_of_documents, xlab="Year" , ylab="No of patents"))
+with(data_priority[(data_priority$Earliest_priority_date>=1990) & (data_priority$Earliest_priority_date<=2016),], lines(Earliest_priority_date, Number_of_documents, xlab="Year" , ylab="No of patents"))
+
+
+# 2. Geographical distribution of patents: inventor country
+
+# Import data
+data_inv_c <- read_excel("C:/Users/Marco/Downloads/R-ICT/Esercitazione_patent/Nissan_motor_v2.xlsx", sheet="Inventors - country")
+View(data_inv_c)
+# Add a column with the total number of patents
+data_inv_c$total_pat=sum(data_inv_c$Number_of_documents, na.rm = FALSE)
+# Compute the countries' patent share
+data_inv_c$Share_pat=(data_inv_c$Number_of_documents/data_inv_c$total_pat)*100
+
+# List of the top 10 countries (console window)
+data_inv_c %>%
+  arrange(desc(Number_of_documents)) %>%
+  slice(1:10) 
+
+# Generation of an object/dataset with the top 10 countries
+data_inv_c_10 <-head(data_inv_c , n = 10)
+
+# Graph of the top 10 countries
+ggplot(data_inv_c_10, aes( y=Share_pat, x=Inventors_country)) + 
+  geom_bar(position="dodge", stat="identity") +
+  ggtitle("Inventors' country") +
+  ylab("Share of patents")
+
+
+
+# 3. Main IPC technologies? # N.B. IPC at 4 digit level
+
+# Import data
+data_ipc <- read_excel("C:/Users/Marco/Downloads/R-ICT/Esercitazione_patent/Nissan_motor_v2.xlsx", sheet="IPC main groups")
+View(data_ipc)
+
+# Add a variable with IPC 4-digit level
+data_ipc$ipc4=substr(data_ipc$IPC_main_groups,1,4)
+View(data_ipc)
+
+# Total number of patents by IPC 
+ipc4_NumPat <- aggregate(x=data_ipc$Number_of_documents, by=list(data_ipc$ipc4), FUN=sum, na.rm=TRUE)
+View(ipc4_NumPat)
+
+# Rename of the variables
+ipc4_NumPat <- ipc4_NumPat %>% rename( IPC4 = Group.1 )
+ipc4_NumPat <- ipc4_NumPat %>% rename( Num_pat = x )
+View(ipc4_NumPat)
+
+# Sort the data in descending order
+ipc4_NumPat <- ipc4_NumPat %>% arrange(desc(Num_pat))
+
+write.table(ipc4_NumPat, file ="C:/Users/Marco/Downloads/R-ICT/Esercitazione_patent/Nissan_ipc4.csv", sep = ",", quote = FALSE, row.names = F)
+
+# 4. Herfindahl index of technological diversification
+# Total patents by IPC
+ipc4_NumPat$total_pat=sum(ipc4_NumPat$Num_pat, na.rm = FALSE)
+# IPC patent share
+ipc4_NumPat$Share_pat=ipc4_NumPat$Num_pat/ipc4_NumPat$total_pat
+# IPC patent share (squared)
+ipc4_NumPat$Share_pat_sq=ipc4_NumPat$Share_pat^2
+# Herfindahl index
+Herf_index=sum(ipc4_NumPat$Share_pat_sq, na.rm = FALSE)
+print(Herf_index)
+
+
+#################################
+## Technological level analysis (Nissan's top technology)
+###################################
+
+
+# Identification of the top technology
+View(ipc4_NumPat)
+head(ipc4_NumPat$IPC4, 1)
+
+# F02D is the technology to consider
+# ESPACENET <--- we donwload info on this technology (Excel file)
+
+# Import data
+F02D_priority <- read_excel("C:/Users/Marco/Downloads/R-ICT/Esercitazione_patent/F02D_v2.xlsx", sheet="Earliest priority date")
+View(F02D_priority)
+
+# 5. Evolution over time (graphs)
+plot(F02D_priority$Earliest_priority_date, F02D_priority$Number_of_documents, xlab="Year", ylab="Number of patents", main="Number of patents - F02D")
+
+with(F02D_priority[(F02D_priority$Earliest_priority_date>=1980) & (F02D_priority$Earliest_priority_date<=2016),], plot(Earliest_priority_date, Number_of_documents, xlab="Year" , ylab="No of Firms", main="Number of patents - F02D"))
+with(F02D_priority[(F02D_priority$Earliest_priority_date>=1980) & (F02D_priority$Earliest_priority_date<=2016),], lines(Earliest_priority_date, Number_of_documents, xlab="Year" , ylab="No of Firms", main="Number of patents - F02D"))
+
+# 6. Top ten aplicants
+F02D_applicant <- read_excel("C:/Users/Marco/Downloads/R-ICT/Esercitazione_patent/F02D_v2.xlsx", sheet="Applicants")
+View(F02D_applicant)
+
+write.table(F02D_applicant , file ="C:/Users/Marco/Downloads/R-ICT/Esercitazione_patent/F02D_applicant.csv", sep = ",", quote = FALSE, row.names = F)
+
+# 7. Concentration ratio index (CR4)
+
+# Compute the total number of patents
+F02D_applicant$total_pat=sum(F02D_applicant$Number_of_documents, na.rm = FALSE)
+# Add the shares
+F02D_applicant$Share_pat=F02D_applicant$Number_of_documents/F02D_applicant$total_pat
+
+# Compute the CR4 (sum of the top 4 shares)
+F02D_applicant4 <-head(F02D_applicant, n = 4)
+C4_index=sum(F02D_applicant4$Share_pat, na.rm = FALSE)
+print(C4_index)
+
+
+# 8. Top ten applicants'country
+# Import data
+data_appl_c <- read_excel("C:/Users/Marco/Downloads/R-ICT/Esercitazione_patent/F02D_v2.xlsx", sheet="Applicants - country")
+View(data_appl_c)
+# Compute (and add) the countries' share
+data_appl_c$tota_pat=sum(data_appl_c$Number_of_documents, na.rm = FALSE)
+data_appl_c$Share_pat=(data_appl_c$Number_of_documents/ data_appl_c$tota_pat)*100
+
+# Top ten countries (printed on the Console window)
+data_appl_c %>%
+  arrange(desc(Number_of_documents)) %>%
+  slice(1:10) 
+
+# new objcet/dataset with the top 10 countries
+data_appl_c_10 <-head(data_appl_c , n = 10)
+
+# Graph the top 10 countries
+ggplot(data_appl_c_10, aes( y=Share_pat, x=Applicants_country)) + 
+  geom_bar(position="dodge", stat="identity") +
+  ggtitle("Applicants' country") +
+  ylab("Share of patents")

@@ -1,0 +1,102 @@
+# Carica le librerie necessarie
+rm(list = ls())
+library(readxl)
+library(openxlsx)
+library(ggplot2)
+library(tidyr)
+library(corrplot)
+library(dplyr)
+library(MASS)
+library(lmtest)
+library(olsrr)  # per il passaggio stepwise
+library(caret)
+library(Metrics)
+library(rstudioapi)
+
+## Importa i dati ----
+current_path <- getActiveDocumentContext()$path
+
+# Importa i dati dal tuo foglio Excel
+data1 <- read_excel("data.xlsx", sheet = 3)
+data2 <- read_excel("data.xlsx", sheet = 2)
+
+# Visualizza alcune informazioni sui dati importati
+dim(data1)
+str(data1)
+head(data1)
+summary(data1)
+
+# Rimuovi le righe con dati mancanti
+data1 = drop_na(data1)
+
+dim(data2)
+str(data2)
+head(data2)
+summary(data2)
+
+# Rimuovi le righe con dati mancanti
+data2 = drop_na(data2)
+
+# Unisci i dati in base al campo "Record ID"
+datoni <- merge(data1, data2, by = "Record ID")
+
+# Rimuovi le righe duplicate in base a "Isin"
+datonzi <- datoni[!duplicated(datoni$Isin),]
+
+# Rimuovi le colonne non necessarie
+datoni <- datonzi[, -c(1, 2, 3, 4)]
+
+# Filtra i dati in modo che NET_SALES e ENTERPRISE_VALUE siano maggiori di zero
+datoni <- datoni %>% filter(!(datoni$NET_SALES <= 0))
+datoni <- datoni %>% filter(!(datoni$ENTERPRISE_VALUE <= 0))
+
+# Rimuovi le righe che non soddisfano una certa condizione, ad esempio:
+# datoni <- datoni[datoni$EBITDA >= 0 & datoni$`RETURN_ON_ EQUITY` >= 0 | datoni$EBITDA < 0 & datoni$`RETURN_ON_ EQUITY` < 0,]
+
+# Esegui ulteriori pulizie dati come la rimozione di outlier
+
+## Analisi delle correlazioni ----
+numeric.var <- sapply(datoni, is.numeric)
+str(numeric.var)
+C <- cor(datoni[, numeric.var])
+# dev.new()
+corrplot(C, method = 'number')
+corrplot(C, method = 'circle')
+
+# Pulisci variabili e rimuovi collinearità
+datoni$SUB_INDUSTRY <- as.factor(datoni$SUB_INDUSTRY)
+celentano <- datoni[, -c(2, 4, 5, 6, 7)]
+colnames(celentano)[4] <- "EPS"
+
+# Esegui ulteriori trasformazioni sui dati, ad esempio:
+# celentano <- celentano[celentano$EBITDA >= 0 & celentano$EPS >= 0 | celentano$EBITDA < 0 & celentano$EPS < 0,]
+
+# Rimuovi le righe con valori di EPS e RETURN_ON_ASSET elevati
+celentano <- celentano %>% filter(!(EPS > 15))
+celentano$EPS <- -(celentano$EPS)
+celentano <- celentano %>% filter(!(EPS > 15))
+celentano$EPS <- -(celentano$EPS)
+celentano <- celentano %>% filter(!(EBITDA > 12.064))
+celentano <- celentano %>% filter(!(RETURN_ON_ASSET > 25))
+celentano$RETURN_ON_ASSET <- -(celentano$RETURN_ON_ASSET)
+celentano <- celentano %>% filter(!(RETURN_ON_ASSET > 45))
+celentano$RETURN_ON_ASSET <- -(celentano$RETURN_ON_ASSET)
+
+# Continua a pulire i dati come necessario
+
+# Fit del modello di regressione lineare
+reg_lineare <- lm(EPS ~ EBITDA + RETURN_ON_ASSET + SUB_INDUSTRY, data = celentano)
+summary(reg_lineare)
+
+# Esegui il test di Breusch-Pagan per l'eteroschedasticità
+bptest(reg_lineare)
+
+# Continua con ulteriori analisi, come la trasformazione logaritmica delle variabili
+
+# Esegui la regressione lineare con le variabili trasformate
+reg_lin <- lm(log(EPS) ~ log(EBITDA) + log(RETURN_ON_ASSET) + SUB_INDUSTRY, data = celentano)
+summary(reg_lin)
+
+# Altre analisi come la divisione dei dati in set di allenamento e test
+
+

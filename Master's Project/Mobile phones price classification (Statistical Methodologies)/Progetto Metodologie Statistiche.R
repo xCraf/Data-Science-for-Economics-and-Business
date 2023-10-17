@@ -1,0 +1,445 @@
+rm(list = ls())
+library(dplyr)
+library(ggplot2)
+library(rstudioapi)
+library(corrplot)
+library(tidyverse)
+library(caret)
+library(rpart.plot)
+library(randomForest)
+library(neuralnet)
+library(class)
+library(HH)
+library(olsrr)
+library(caTools)
+library(cluster)
+
+## setiamo la directory
+current_path <- getActiveDocumentContext()$path 
+setwd(dirname(current_path ))
+print( getwd() )
+
+## importiamo dati
+mobile_train_df <- read.csv("C:/Users/Marco/Downloads/train.csv")
+dim(mobile_train_df)
+str(mobile_train_df)
+head(mobile_train_df)
+summary(mobile_train_df)
+mobile_train_df=drop_na(mobile_train_df) # no ci sono NA
+duplicated(mobile_train_df)
+lapply(mobile_train_df, sd)
+
+# battery_power = potenza della batteria (mAh)
+# blue = ha o meno il bluetooth
+# clock_speed = velocit? con la quale il microprocessore esegue le istruzioni (GHz)
+# dual_sim = ha o meno la doppia sim
+# fc = camera frontale (Mega Pixels)
+# four_g = ha o meno il 4G
+# int_memory = memoria inerna (Gigabytes)
+# m_dep = spessore del telefono (cm)
+# mobile_wt = peso del telefono (grammi)
+# n_cores = numero dei core del processore
+# pc = camera principale (Mega Pixels)
+# px_height = risoluzione pixel in altezza
+# px_width = risoluzione pixels in profondit?
+# ram = RAM (Megabytes)
+# sc_h = altezza schermo (cm)
+# sc_w = spessore schermo (cm)
+# talk_time = durata di una carica di batteria se si ? in chiamata (h)
+# three_g = ha o meno il 3G
+# touch_screen = ha o meno il touch screen
+# wifi = ha o meno la possibilit? di collegarsi al wi-fi
+# price_range = fascia di prezzo
+
+##########################correlazioni###########################
+
+#settiamo le variabili dummy come fattori
+mobile_train_df$blue = as.factor(mobile_train_df$blue)
+mobile_train_df$dual_sim = as.factor(mobile_train_df$dual_sim)
+mobile_train_df$four_g = as.factor(mobile_train_df$four_g)
+mobile_train_df$three_g = as.factor(mobile_train_df$three_g)
+mobile_train_df$touch_screen = as.factor(mobile_train_df$touch_screen)
+mobile_train_df$wifi = as.factor(mobile_train_df$wifi)
+mobile_train_df$price_range = as.factor(mobile_train_df$price_range)
+
+numeric.var <- sapply(mobile_train_df, is.numeric) #prendiamo solo quelle numeriche
+str(numeric.var)
+C <- cor(mobile_train_df[,numeric.var])
+dev.new()
+corrplot(C, method = 'number')
+corrplot(C, method = 'circle')  #notiamo correlazione tra: 
+# risoluzione pixel in altezza - risoluzione pixel in profondit? (0.51)
+# fotocamera interna - fotocamera principale (0.64)
+# altezza schermo - spessore schermo (0.51)
+
+dataf = data.frame(MagaPixels = c(mobile_train_df$fc, mobile_train_df$pc), 
+                  Camera = rep(c("Front Camera", "Primary Camera"), 
+                               c(length(mobile_train_df$fc), length(mobile_train_df$pc))))
+ggplot(dataf, aes(MagaPixels, fill = Camera)) + 
+  geom_bar(position = 'identity', alpha = .5)
+  
+######################## distribuzioni di frequenza #########################
+  ggplot(data=mobile_train_df, aes(x=battery_power))+
+    geom_histogram(binwidth =40, fill= "#0073C2FF")+
+    labs(y="Count",
+         x="Battery Power",
+         title= "Distribuzione Capienza Batteria")
+  ggplot(data=mobile_train_df, aes(x=blue))+
+    geom_bar(binwidth =0.5, fill= "#0073C2FF")+
+    labs(y="Count",
+         x="Bluetooth",
+         title= "Distribuzione Presenza Bluetooth")
+  ggplot(data=mobile_train_df, aes(x=clock_speed))+
+    geom_histogram(binwidth =0.1, fill= "#0073C2FF")+
+    labs(y="Count",
+         x="Clock Speed",
+         title= "Distribuzione Clock Speed")
+  ggplot(data=mobile_train_df, aes(x=dual_sim))+
+    geom_bar(binwidth =0.5, fill= "#0073C2FF")+
+    labs(y="Count",
+         x="Dual Sim",
+         title= "Distribuzione Presenza Dual Sim")
+  ggplot(data=mobile_train_df, aes(x=fc))+
+    geom_histogram(binwidth =1, fill= "#0073C2FF")+
+    labs(y="Count",
+         x="Front Camera MegaPixel",
+         title= "Distribuzione Mpx Camera Frontale")
+  ggplot(data=mobile_train_df, aes(x=four_g))+
+    geom_bar(binwidth =0.5, fill= "#0073C2FF")+
+    labs(y="Count",
+         x="4G",
+         title= "Distribuzione presenza 4G")
+  ggplot(data=mobile_train_df, aes(x=int_memory))+
+    geom_histogram(binwidth =7, fill= "#0073C2FF")+
+    labs(y="Count",
+         x="Internal Memory",
+         title= "Distribuzione Memoria Interna")
+  ggplot(data=mobile_train_df, aes(x=m_dep))+
+    geom_histogram(binwidth =0.1, fill= "#0073C2FF")+
+    labs(y="Count",
+         x="Spessore",
+         title= "Distribuzione Spessore Telefono")
+  ggplot(data=mobile_train_df, aes(x=mobile_wt))+
+    geom_histogram(binwidth =5, fill= "#0073C2FF")+
+    labs(y="Count",
+         x="Phone Weight",
+         title= "Distribuzione Peso Telefono")
+  ggplot(data=mobile_train_df, aes(x=n_cores))+
+    geom_histogram(binwidth =1, fill= "#0073C2FF")+
+    labs(y="Count",
+         x="Core Numbers",
+         title= "Distribuzione Numero di Cores")
+  ggplot(data=mobile_train_df, aes(x=pc))+
+    geom_histogram(binwidth =1, fill= "#0073C2FF")+
+    labs(y="Count",
+         x="Camera Mpx",
+         title= "Distribuzione Camera Mpx ")
+  ggplot(data=mobile_train_df, aes(x=px_height))+
+    geom_histogram(binwidth =40, fill= "#0073C2FF")+
+    labs(y="Count",
+         x="Risoluzione Camera Pixel in Verticale",
+         title= "Distribuzione Risoluzione Verticale Camera Pixel")
+  ggplot(data=mobile_train_df, aes(x=px_width))+
+    geom_histogram(binwidth =40, fill= "#0073C2FF")+
+    labs(y="Count",
+         x="Risoluzione Camera Pixel in Orizzontale",
+         title= "Distribuzione Risoluzione Orizzontale Camera Pixel")
+  ggplot(data=mobile_train_df, aes(x=ram))+
+    geom_histogram(binwidth =100, fill= "#0073C2FF")+
+    labs(y="Count",
+         x="Ram",
+         title= "Distribuzione Ram")
+  ggplot(data=mobile_train_df, aes(x=sc_h))+
+    geom_histogram(binwidth =1, fill= "#0073C2FF")+
+    labs(y="Count",
+         x="Screen Height",
+         title= "Distribuzione Altezza Telefoni")
+  ggplot(data=mobile_train_df, aes(x=sc_w))+
+    geom_histogram(binwidth =1, fill= "#0073C2FF")+
+    labs(y="Count",
+         x="Screen Width",
+         title= "Distribuzione Largezza Telefoni") 
+  ggplot(data=mobile_train_df, aes(x=talk_time))+
+    geom_histogram(binwidth =1, fill= "#0073C2FF")+
+    labs(y="Count",
+         x="Talk Time",
+         title= "Distribuzione Tempo di Chiamata")
+  ggplot(data=mobile_train_df, aes(x=three_g))+
+    geom_bar(binwidth =0.5, fill= "#0073C2FF")+
+    labs(y="Count",
+         x="3G",
+         title= "Distribuzione Presenza 3G")
+  ggplot(data=mobile_train_df, aes(x=touch_screen))+
+    geom_bar(binwidth =0.5, fill= "#0073C2FF")+
+    labs(y="Count",
+         x="Touch Screen",
+         title= "Distribuzione Presenza Touch Screen")
+  ggplot(data=mobile_train_df, aes(x=wifi))+
+    geom_bar(binwidth =0.5, fill= "#0073C2FF")+
+    labs(y="Count",
+         x="Wifi",
+         title= "Distribuzione Presenza Wi-Fi")
+  ggplot(data=mobile_train_df, aes(x=price_range))+
+    geom_bar(binwidth =0.5, fill= "#0073C2FF")+
+    labs(y="Count",
+         x="Price Range",
+         title= "Distribuzione Fasce di Prezzo")  
+
+######################## standardizziamo le variabili numeriche ########################
+  
+numeric_data = mobile_train_df[,c(1,3,5,7:17)]
+
+fun_norm = function(x){
+    return((x-mean(x))/sd(x))
+}
+
+data_std = as.data.frame(lapply(numeric_data, fun_norm))
+data = data.frame(data_std, mobile_train_df[,c(2,4,6,18:21)])
+
+######################## dividere train e test ###########################
+set.seed(123)
+sample_data<- sample.split(data,SplitRatio = 0.75)
+sample_data
+train_data<-subset(data, sample_data==TRUE)
+dim(train_data)
+test_data<-subset(data, sample_data==FALSE)
+dim(test_data)
+prop.table(table(train_data$price_range))
+prop.table(table(test_data$price_range))
+
+####################### ANALISI DISCRIMINANTE ############################
+freq_ass = summary(train_data$price_range)    #calcoliamo le prob a priori delle classi
+freq_prior = freq_ass / nrow(train_data)
+
+train_ad = lda(price_range ~.,train_data, prior = freq_prior) #eseguiamo lda
+print(train_ad)
+summary(train_ad)
+
+xlev =train_ad$xlevels
+xlev
+prediction = predict(train_ad,test_data)  #predizione
+
+dev.new()
+plot(train_ad, dimen=1, type="b")  
+plot(train_ad, col = as.integer(train_data$price_range))
+
+
+y_oss=test_data$price_range                   
+y_pred=prediction$class
+confusionMatrix(y_pred,y_oss)  ##risultati predizione sul test set
+tab1=xtabs(~y_pred+y_oss)
+valori_beccati1 = diag(tab1)
+accuracy_ad = sum(valori_beccati1)/length(y_oss)
+tab1
+accuracy_ad                    # 95.44658 %
+
+
+########################### albero ####################################
+tree<-rpart(price_range~., data = train_data,           
+            control = rpart.control(cp=0.0001), 
+            parms = list(split="gini"))
+
+fit<-train_data%>%train(price_range~., data=., method="rpart", 
+                        control= rpart.control(cp=0.0001),
+                        trControl=trainControl(method = "cv",number=10), 
+                        tuneLength=6)
+dev.new()
+plotcp(tree)
+printcp(tree) 
+bestcp<-tree$cptable[which.min(tree$cptable[,"xerror"]), "CP"]
+bestcp
+tree.pruned<-prune(tree, cp=bestcp)
+tree.pruned ## *nodo terminale
+dev.new()
+plot(tree.pruned)
+text(tree.pruned, cex=0.8, use.n = TRUE, xpd=TRUE)
+test_pred = predict(tree.pruned, test_data,type = "class")
+tab2 = xtabs(~test_pred+test_data$price_range)
+accuracy_tree = sum(diag(tab2))/length(test_data$price_range)
+accuracy_tree                 # 88.2662 %
+
+
+########################### random forest #############################
+set.seed(456)
+randomf = randomForest(formula = price_range ~. , data = train_data , importance = TRUE)
+
+# robe varie da interpretare 
+dev.new()
+plot(randomf)
+varImpPlot(randomf)   #importanza della variabile nello split
+randomf$ntree
+randomf$predicted
+
+randomf_pred = predict(randomf, newdata = test_data)
+
+
+tab3=xtabs(~randomf_pred+test_data$price_range)
+valori_beccati3 = diag(tab3)
+accuracy_rf = sum(valori_beccati3)/length(test_data$price_range)
+tab3
+accuracy_rf
+                             # 90.01751 % 
+
+######################## nearest neighbour ###############################
+
+train_index<-createFolds(train_data$price_range, k=10)
+train_knn = train(price_range ~., method="knn", data= train_data, 
+                           metric="Accuracy")#tuneLenght=200
+train_knn
+train_knn$finalModel
+
+pr_knn<-predict(train_knn, test_data)
+pr_knn
+
+tab4.1=xtabs(~pr_knn+test_data$price_range)
+valori_beccati4.1 = diag(tab4.1)
+accuracy_knn1 = sum(valori_beccati4.1)/length(test_data$price_range)
+tab4.1
+accuracy_knn1
+                                  # 55.34151 %
+
+cl = as.factor(train_data$price_range)
+pr_knn2 = knn(train_data, test_data, cl , k = 250)
+tab4.2=xtabs(~pr_knn2+test_data$price_range)
+valori_beccati4.2 = diag(tab4.2)
+accuracy_knn2 = sum(valori_beccati4.2)/length(test_data$price_range)
+tab4.2
+accuracy_knn2
+                                 # 93.16988 %
+#### l'impostore ####
+plot(mobile_train_df$price_range,mobile_train_df$ram)
+
+ggplot(data=mobile_train_df, aes(x=ram, y=n_cores,col = price_range, fill=price_range))+
+  geom_point()+
+  labs(y="Cores",
+       x="Ram",
+       title= "numero di core e ram per fascia di prezzo")
+########################### PCA #############################
+
+pca = prcomp(data[,-(15:21)], scale = FALSE)
+plot(pca,type="l")## CP ordinate gerarchicamente rispetto alla varianza
+summary(pca)
+dev.new()
+pca$x #--> valori CP in corrispondenza delle unit? (se utilizzo princomp pc$scores)
+pca$rotation ##autovettori di S (se utilizzo princomp pc$loadings)
+
+
+data2  = cbind(data[,-(15:20)],pca$x[,1:2])
+View(data2)
+
+
+dev.new()
+ggplot(data2, aes(x=PC1,y=PC2, col=price_range,
+                  fill=price_range))+stat_ellipse(geom = "polygon", 
+                                              col="black",alpha=0.5)+geom_point(shape=21,col="black")
+
+#la pca fa schifo 
+
+
+#################### clustering with gower distance (PAM-k-means)  ##########################
+#PAM (dati non scalati)
+gower_dist1 = daisy(mobile_train_df[,-21],                #distanza di gower con tutte le variabili
+                 metric = "gower")
+summary(gower_dist1)
+pam_cluster1 = pam(gower_dist1, diss = TRUE, k = 4)
+
+prediction_cluster1 = as.factor(pam_cluster1$clustering -1)
+cluster_data1 = data.frame(mobile_train_df, prediction_cluster1)
+count(cluster_data1[cluster_data1$price_range == cluster_data1$prediction_cluster1,])
+cluster_data1[cluster_data1$price_range == 0,]
+cluster_data1[cluster_data1$price_range == 1,]
+cluster_data1[cluster_data1$price_range == 2,]
+cluster_data1[cluster_data1$price_range == 3,]
+
+ggplot(cluster_data1, aes(prediction_cluster1, ram, col = prediction_cluster1 ))+
+  geom_boxplot()
+
+ggplot(cluster_data1, aes(price_range, ram, col = price_range ))+
+  geom_boxplot()
+
+#PAM (dati scalati)
+
+gower_dist2 = daisy(data[,-21],                #distanza di gower con tutte le variabili
+                   metric = "gower")
+summary(gower_dist2)
+pam_cluster2 = pam(gower_dist2, diss = TRUE, k = 4)
+
+prediction_cluster2 = as.factor(pam_cluster2$clustering -1)
+cluster_data2 = data.frame(mobile_train_df, prediction_cluster2)
+count(cluster_data2[cluster_data2$price_range == cluster_data2$prediction_cluster2,])
+cluster_data2[cluster_data2$price_range == 0,]
+cluster_data2[cluster_data2$price_range == 1,]
+cluster_data2[cluster_data2$price_range == 2,]
+cluster_data2[cluster_data2$price_range == 3,]
+
+
+colMeans(mobile_train_df[mobile_train_df$price_range == 0,])
+colMeans(mobile_train_df[mobile_train_df$price_range == 1,])
+colMeans(mobile_train_df[mobile_train_df$price_range == 2,])
+colMeans(mobile_train_df[mobile_train_df$price_range == 3,])
+
+#K-Means
+
+euclid_dist = daisy(numeric_data, metric = "euclid" )   #distanza euclidea con solo quelle numeriche
+euclid_dist_st = daisy(data_std, metric = "euclid")     # std
+
+d = as.matrix(euclid_dist)                 #distanze
+d_st = as.matrix(euclid_dist_st)           #distanze standardizzate
+
+dist_gruppi30<-as.matrix(d_st)[data$price_range==3,data$price_range==0]
+dist_gruppi31<-as.matrix(d_st)[data$price_range==3,data$price_range==1]
+dist_gruppi32<-as.matrix(d_st)[data$price_range==3,data$price_range==2]
+dist_gruppi20<-as.matrix(d_st)[data$price_range==2,data$price_range==0]
+dist_gruppi21<-as.matrix(d_st)[data$price_range==2,data$price_range==1]
+dist_gruppi10<-as.matrix(d_st)[data$price_range==1,data$price_range==0]
+
+centr_0<-colMeans(data_std[data$price_range==0,]) ## centroide gruppo 0
+centr_1<-colMeans(data_std[data$price_range==1,]) ## centroide gruppo 1
+centr_2<-colMeans(data_std[data$price_range==2,]) ## centroide gruppo 2
+centr_3<-colMeans(data_std[data$price_range==3,]) ## centroide gruppo 3
+
+#distanza euclidea tra centroidi dal gruppo 0
+
+dist_cent01<-sqrt(sum((centr_0-centr_1)^2))
+dist_cent02<-sqrt(sum((centr_0-centr_2)^2))
+dist_cent03<-sqrt(sum((centr_0-centr_3)^2))    
+
+#notiamo che le differenze tra centroidi aumentano con l'aumento di price_range (cosa buona e giusta)
+
+
+km<-kmeans(scale(numeric_data), centers = 4, nstart = 50)    #k-means con tutte le var numeriche
+prediction_km = as.factor(km$cluster -1)
+cluster_km = data.frame(mobile_train_df, prediction_km)
+table(cluster_km$price_range,cluster_km$prediction_km)
+dev.new()
+ggplot(cluster_km, aes(prediction_km, ram, col = prediction_km ))+
+  geom_boxplot()
+
+
+km1 = kmeans(scale(numeric_data[,c(1,11)]), centers = 4, nstart = 50) # k-means con ram e durata batteria
+prediction_km1 = as.factor(km1$cluster -1)
+cluster_km1 = data.frame(mobile_train_df, prediction_km1)
+table(cluster_km1$price_range,cluster_km1$prediction_km1)
+dev.new()
+ggplot(cluster_km1, aes(prediction_km1, ram, col = prediction_km1 ))+
+  geom_boxplot()
+
+
+km2 = kmeans(scale(numeric_data[,11]), centers = 4, nstart = 50)   # k-means con solo ram 
+prediction_km2 = as.factor(km2$cluster -1)
+cluster_km2 = data.frame(mobile_train_df, prediction_km2)
+table(cluster_km2$price_range,cluster_km2$prediction_km2)
+dev.new()
+ggplot(cluster_km2, aes(prediction_km2, ram, col = prediction_km2 ))+
+  geom_boxplot()
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,96 @@
+set verbose off
+clear
+
+open C:\Users\Marco\Downloads\ProgettoGretl\gasoline.csv
+smpl --no-missing
+
+ly
+lp
+lc
+
+#8 trimestri= 2 anni
+list DET= const 
+p=8
+q1=8
+q2=8
+ols lc DET lc(-1 to -p) lp(0 to -q1) ly(0 to -q2)  dq1 dq2 dq3 covid
+modtest 4 --autocorr
+
+list DET= const 
+p=3
+q1=2
+q2=6
+ols lc DET lc(-1 to -p) lp(0 to -q1) ly(0 to -q2)  dq1 dq2 dq3 covid 
+modtest 4 --autocorr
+
+ini= nelem(DET)+1
+fin= ini+p-1
+a=$coeff[ini:fin]
+ini= fin+1
+fin= ini+q1
+b=$coeff[ini:fin]
+ini=fin+1
+fin=ini+q2
+c=$coeff[ini:fin]
+print a b c # d0 PRICE= -0.019084 d0 GDP= 0.83585
+
+#LONG RUN PRICE = -0.0932852
+scalar A1 = 1 - sum(a)
+scalar B1 = sum(b)
+matrix shock = 1 | zeros(20,1)
+matrix m = filter(shock, b, a)
+matrix cm = cum(m)
+table = seq(0, 20)' ~  m ~ cm
+print table
+printf "LRM = %g\n", B1/A1 # aumento del prezzo di 1 diminuirà il consumo di 0.09
+
+#LONG RUN GDP = 0.495419
+scalar A1 = 1 - sum(a)
+scalar C1 = sum(c) 
+matrix shock = 1 | zeros(20,1)
+matrix m = filter(shock, c, a)
+matrix cm = cum(m)
+table = seq(0, 20)' ~  m ~ cm
+print table
+printf "LRM = %g\n", C1/A1 # aumento del gdp di 1 aumento il consumo di 0.49
+# se guadagnamo 1 non spenderemo 1 ma ci terremo da parte qualcosa
+
+#################### TIME FOR TREND MODELLING ###################
+list DET= const 
+p=1
+q1=3
+q2=2
+ols lc DET lc(-1 to -p) lp(0 to -q1) ly(0 to -q2)  dq1 dq2 dq3 covid time
+modtest 4 --autocorr
+
+ini= nelem(DET)+1
+fin= ini+p-1
+a=$coeff[ini:fin]
+ini= fin+1
+fin= ini+q1
+b=$coeff[ini:fin]
+ini=fin+1
+fin=ini+q2
+c=$coeff[ini:fin]
+print a b c # d0 PRICE= -0.02533 d0 GDP= 0.88799
+
+#LONG RUN PRICE = -0.0341829
+scalar A1 = 1 - sum(a)
+scalar B1 = sum(b)
+matrix shock = 1 | zeros(20,1)
+matrix m = filter(shock, b, a)
+matrix cm = cum(m)
+table = seq(0, 20)' ~  m ~ cm
+print table
+printf "LRM = %g\n", B1/A1 # aumento del prezzo di 1 diminuirà il consumo di 0.0341829
+
+#LONG RUN GDP = 1.01891
+scalar A1 = 1 - sum(a)
+scalar C1 = sum(c) 
+matrix shock = 1 | zeros(20,1)
+matrix m = filter(shock, c, a)
+matrix cm = cum(m)
+table = seq(0, 20)' ~  m ~ cm
+print table
+printf "LRM = %g\n", C1/A1 # aumento del gdp di 1 aumento il consumo di 1.01891
+# quasi completamente elastica

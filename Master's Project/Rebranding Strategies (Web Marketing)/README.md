@@ -1,0 +1,3 @@
+The focus of this project was to help a company (MTA), who is doing a rebrand, in better understanding what to improve in their marketing strategies. We also proposed a new website interface with a chatbot (which can be seen here: [Home | MTA (craflen15.wixsite.com)](https://craflen15.wixsite.com/my-site)).
+
+Here's the link to the presentation  in Canva: <https://www.canva.com/design/DAFlOSiDs4Q/qA42zoOicncASg6PDa6OWQ/edit?utm_content=DAFlOSiDs4Q&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton>
